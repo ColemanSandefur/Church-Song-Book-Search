@@ -24,6 +24,7 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.15",
+    "tesseract.js": "^6.0.1",
     "yauzl": "^3.2.0"
   },
   "devDependencies": {

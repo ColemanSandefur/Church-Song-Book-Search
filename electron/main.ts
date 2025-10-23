@@ -9,6 +9,7 @@ export const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { db, runMigrate } from "./db";
 import { NewSong, songs } from "../src/db/schema";
 import { extractAllPptxImagesFromDir } from "./ppt-extract";
+import { extractTextFromImage } from "./text-extract";
 
 // The built directory structure
 //
@@ -74,6 +75,22 @@ app.on("activate", () => {
 app.whenReady().then(async () => {
   await runMigrate();
   createWindow();
+  const images = await extractAllPptxImagesFromDir("");
+
+  const [fileName, imagePaths] = Object.entries(images)[0];
+  console.log(`Extracted images from ${fileName}:`);
+  imagePaths.forEach((imgPath) => console.log(` - ${imgPath}`));
+
+  const texts = await Promise.all(
+    imagePaths.map(async (imgPath) => {
+      const text = await extractTextFromImage(imgPath);
+      return { imgPath, text };
+    })
+  );
+
+  texts.forEach(({ imgPath, text }) => {
+    console.log(`\nText from image ${imgPath}:\n${text}\n`);
+  });
 });
 
 export function getSongs() {

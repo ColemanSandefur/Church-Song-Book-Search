@@ -15,6 +15,7 @@ release/
 *.local
 **/*.db
 drizzle/meta
+eng.traineddata
 
 # Editor directories and files
 .vscode/*
