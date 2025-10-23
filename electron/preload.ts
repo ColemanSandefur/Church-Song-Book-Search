@@ -1,4 +1,5 @@
 import { ipcRenderer, contextBridge } from 'electron'
+import { Item } from '../src/db/schema'
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -22,3 +23,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+contextBridge.exposeInMainWorld('db', {
+  getItems: () => ipcRenderer.invoke('db:get-items'),
+  addItem: (itemData: Item) => ipcRenderer.invoke('db:add-item', itemData),
+});

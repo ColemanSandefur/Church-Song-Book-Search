@@ -1,10 +1,13 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const require = createRequire(import.meta.url)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+export const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+import { db, runMigrate } from './db'
+import { items, NewItem } from '../src/db/schema'
 
 // The built directory structure
 //
@@ -28,7 +31,7 @@ let win: BrowserWindow | null
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC!, 'electron-vite.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
@@ -65,4 +68,25 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(async () => {
+  await runMigrate();
+  db.query.items.findMany().then(console.log);
+  createWindow();
+})
+
+export function getItems() {
+  return db.select().from(items).all();
+}
+
+ipcMain.handle('db:get-items', async () => {
+  return getItems();
+});
+
+export function addItem(itemData: NewItem) {
+  return db.insert(items).values(itemData);
+}
+
+ipcMain.handle('db:add-item', async (_event, itemData) => {
+  const result = await db.insert(items).values(itemData);
+  return result;
+});

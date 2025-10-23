@@ -10,7 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-electron
+release/
 *.local
+**/*.db
+drizzle/meta
 
 # Editor directories and files
 .vscode/*

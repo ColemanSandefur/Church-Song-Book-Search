@@ -1,5 +1,7 @@
 /// <reference types="vite-plugin-electron/electron-env" />
 
+const {Item, NewItem} = import('../src/db/schema');
+
 declare namespace NodeJS {
   interface ProcessEnv {
     /**
@@ -23,5 +25,10 @@ declare namespace NodeJS {
 
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
-  ipcRenderer: import('electron').IpcRenderer
+  ipcRenderer: import('electron').IpcRenderer,
+  db: {
+    getItems: () => Promise<Item[]>,
+    addItem: (itemData: NewItem) => Promise<any>;
+  };
 }
+
