@@ -1,12 +1,12 @@
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-export const items = sqliteTable('items', {
+export const songs = sqliteTable('songs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  value: text('value'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).default(new Date()),
+  title: text('title').notNull(),
+  number: integer('number').notNull(),
+  text: text('text'),
 });
 
-export type Item = InferSelectModel<typeof items>;
-export type NewItem = InferInsertModel<typeof items>;
+export type Song = InferSelectModel<typeof songs>;
+export type NewSong = InferInsertModel<typeof songs>;

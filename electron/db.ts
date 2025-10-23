@@ -19,7 +19,7 @@ export const runMigrate = async () => {
   const migrations = path.join(process.env.APP_ROOT!, 'drizzle');
   console.log(migrations)
   migrate(db, {
-    migrationsFolder: path.join(migrations)
+    migrationsFolder: migrations
   })
 }
 

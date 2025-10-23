@@ -1,5 +1,5 @@
 import { ipcRenderer, contextBridge } from 'electron'
-import { Item } from '../src/db/schema'
+import { NewSong } from '../src/db/schema'
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -25,6 +25,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 })
 
 contextBridge.exposeInMainWorld('db', {
-  getItems: () => ipcRenderer.invoke('db:get-items'),
-  addItem: (itemData: Item) => ipcRenderer.invoke('db:add-item', itemData),
+  getSongs: () => ipcRenderer.invoke('db:get-songs'),
+  addSong: (songData: NewSong) => ipcRenderer.invoke('db:add-song', songData),
 });

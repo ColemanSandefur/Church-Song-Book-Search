@@ -1,13 +1,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import { createRequire } from 'node:module'
+// import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-const require = createRequire(import.meta.url)
+// const require = createRequire(import.meta.url)
 export const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 import { db, runMigrate } from './db'
-import { items, NewItem } from '../src/db/schema'
+import { NewSong, songs } from '../src/db/schema'
 
 // The built directory structure
 //
@@ -70,23 +70,22 @@ app.on('activate', () => {
 
 app.whenReady().then(async () => {
   await runMigrate();
-  db.query.items.findMany().then(console.log);
   createWindow();
 })
 
 export function getItems() {
-  return db.select().from(items).all();
+  return db.select().from(songs).all();
 }
 
-ipcMain.handle('db:get-items', async () => {
+ipcMain.handle('db:get-songs', async () => {
   return getItems();
 });
 
-export function addItem(itemData: NewItem) {
-  return db.insert(items).values(itemData);
+export function addItem(itemData: NewSong) {
+  return db.insert(songs).values(itemData);
 }
 
-ipcMain.handle('db:add-item', async (_event, itemData) => {
-  const result = await db.insert(items).values(itemData);
+ipcMain.handle('db:add-song', async (_event, songData) => {
+  const result = await db.insert(songs).values(songData);
   return result;
 });

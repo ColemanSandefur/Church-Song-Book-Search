@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import './App.css'
 import { ThemeProvider } from './components/theme-provider'
-import { Item } from './db/schema';
+import { Song } from './db/schema';
 import { Button } from './components/ui/button';
+import { NewSong } from './db/schema';
 
 function App() {
-  const [items, setItems] = useState<Item[]>([]);
+  const [songs, getSongs] = useState<Song[]>([]);
 
-  const refreshItems = async () => {
-    const fetchedItems = await window.db.getItems();
-    setItems(fetchedItems);
+  const refreshSongs = async () => {
+    const fetchedItems = await window.db.getSongs();
+    getSongs(fetchedItems);
   }
 
   useEffect(() => {
-    refreshItems().then().catch(console.error);
+    refreshSongs().then().catch(console.error);
   }, []);
 
   return (
@@ -22,11 +23,11 @@ function App() {
         Welcome!
       </h1>
       <ul>
-        {items.map(item => (
-          <li key={item.id}>{item.name}</li>
+        {songs.map(item => (
+          <li key={item.id}>{item.number}: {item.title}</li>
         ))}
       </ul>
-      <Button onClick={async () => {await window.db.addItem({name: 'hello'}); await refreshItems();}}>Add Row</Button>
+      <Button onClick={async () => {await window.db.addSong({title: "Test Song", number: 25} as NewSong); await refreshSongs();}}>Add Row</Button>
     </ThemeProvider>
   )
 }

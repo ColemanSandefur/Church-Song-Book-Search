@@ -8,7 +8,8 @@
     "build": "tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "postinstall": "electron-rebuild"
+    "postinstall": "electron-rebuild",
+    "generate:drizzle": "drizzle-kit generate"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
