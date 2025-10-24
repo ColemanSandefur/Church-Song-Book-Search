@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-// import { createRequire } from 'node:module'
+// import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "fs";
 
 // const require = createRequire(import.meta.url)
 export const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,22 +76,7 @@ app.on("activate", () => {
 app.whenReady().then(async () => {
   await runMigrate();
   createWindow();
-  const images = await extractAllPptxImagesFromDir("");
-
-  const [fileName, imagePaths] = Object.entries(images)[0];
-  console.log(`Extracted images from ${fileName}:`);
-  imagePaths.forEach((imgPath) => console.log(` - ${imgPath}`));
-
-  const texts = await Promise.all(
-    imagePaths.map(async (imgPath) => {
-      const text = await extractTextFromImage(imgPath);
-      return { imgPath, text };
-    })
-  );
-
-  texts.forEach(({ imgPath, text }) => {
-    console.log(`\nText from image ${imgPath}:\n${text}\n`);
-  });
+  readDirectory("").then().catch(console.error);
 });
 
 export function getSongs() {
@@ -109,3 +95,58 @@ ipcMain.handle("db:add-song", async (_event, songData) => {
   const result = await addSong(songData);
   return result;
 });
+
+async function readDirectory(dirPath: string) {
+  console.log(`Reading directory: ${dirPath}`);
+  const images = await extractAllPptxImagesFromDir(dirPath);
+
+  console.time(`Processing PPTX Images`);
+  for (const [fileName, imagePaths] of Object.entries(images)) {
+    const texts = await Promise.all(
+      imagePaths.map(async (imgPath) => {
+        const text = await extractTextFromImage(imgPath);
+        return { fileName: path.parse(imgPath).name, text };
+      })
+    );
+    function getSlideNumber(filename: string): number | null {
+      const match = filename.match(/image(\d+)/i);
+      return match ? parseInt(match[1], 10) : null;
+    }
+
+    const text = texts
+      .map(({ fileName, text }) => ({
+        slideNumber: getSlideNumber(fileName),
+        text,
+      }))
+      .sort((a, b) => (a.slideNumber ?? 0) - (b.slideNumber ?? 0))
+      .map((item) => item.text)
+      .join("\n");
+
+    const folderPath = path.dirname(imagePaths[0]);
+    if (folderPath) {
+      console.log(`Cleaning up temporary folder: ${folderPath}`);
+      fs.rmSync(folderPath, { recursive: true, force: true });
+    }
+
+    const pptName = path.parse(path.join(dirPath, fileName)).name;
+    const match = pptName.match(/^(\d*\s+)?(.*?)(?:-[A-Za-z]+)?$/);
+    const songNumber = match && match[1] ? parseInt(match[1].trim()) : null;
+    const songName = match ? match[2].trim() : pptName;
+
+    db.insert(songs)
+      .values({ title: songName, number: songNumber, text })
+      .then(() => {
+        console.log(`Inserted song into database: ${songName} (${songNumber})`);
+        console.log(`----------------------------------------`);
+        console.log(text);
+      })
+      .catch((err) => {
+        console.error(
+          `Failed to insert song into database: ${songName} (${songNumber})`,
+          err
+        );
+      });
+  }
+  console.timeEnd(`Processing PPTX Images`);
+  return;
+}
