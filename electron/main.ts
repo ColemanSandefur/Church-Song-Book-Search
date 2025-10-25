@@ -8,9 +8,16 @@ import fs from "fs";
 export const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { db, runMigrate } from "./db";
-import { NewSong, songs } from "../src/db/schema";
+import {
+  NewSong,
+  NewSongBook,
+  SongBook,
+  songBooks,
+  songs,
+} from "../src/db/schema";
 import { extractAllPptxImagesFromDir } from "./ppt-extract";
 import { extractTextFromImage } from "./text-extract";
+import { eq } from "drizzle-orm";
 
 // The built directory structure
 //
@@ -76,7 +83,6 @@ app.on("activate", () => {
 app.whenReady().then(async () => {
   await runMigrate();
   createWindow();
-  readDirectory("").then().catch(console.error);
 });
 
 export function getSongs() {
@@ -92,26 +98,59 @@ export function addSong(itemData: NewSong) {
 }
 
 ipcMain.handle("db:add-song", async (_event, songData) => {
-  const result = await addSong(songData);
-  return result;
+  return addSong(songData);
 });
 
-async function readDirectory(dirPath: string) {
+export function getSongBooks() {
+  return db.select().from(songBooks).all();
+}
+
+ipcMain.handle("db:get-song-books", async () => {
+  return getSongBooks();
+});
+
+export async function addSongBook(songBook: NewSongBook) {
+  const result = await db.insert(songBooks).values(songBook).returning().get();
+
+  readDirectory(result);
+}
+
+ipcMain.handle("db:add-song-book", async (_event, songBookData) => {
+  return addSongBook(songBookData);
+});
+
+export async function removeSongBookById(songNum: number) {
+  const songBook = await db
+    .delete(songBooks)
+    .where(eq(songBooks.id, songNum))
+    .returning()
+    .get();
+
+  return songBook;
+}
+
+ipcMain.handle("db:remove-song-book-by-id", async (_event, songNum) => {
+  return removeSongBookById(songNum);
+});
+
+function getSlideNumber(filename: string): number | null {
+  const match = filename.match(/image(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+async function readDirectory(songBook: SongBook) {
+  const dirPath = songBook.path;
   console.log(`Reading directory: ${dirPath}`);
   const images = await extractAllPptxImagesFromDir(dirPath);
 
   console.time(`Processing PPTX Images`);
-  for (const [fileName, imagePaths] of Object.entries(images)) {
+  for (const [fileName, imagePaths] of Object.entries(images).slice(0, 5)) {
     const texts = await Promise.all(
       imagePaths.map(async (imgPath) => {
         const text = await extractTextFromImage(imgPath);
         return { fileName: path.parse(imgPath).name, text };
       })
     );
-    function getSlideNumber(filename: string): number | null {
-      const match = filename.match(/image(\d+)/i);
-      return match ? parseInt(match[1], 10) : null;
-    }
 
     const text = texts
       .map(({ fileName, text }) => ({
@@ -134,7 +173,12 @@ async function readDirectory(dirPath: string) {
     const songName = match ? match[2].trim() : pptName;
 
     db.insert(songs)
-      .values({ title: songName, number: songNumber, text })
+      .values({
+        songBookId: songBook.id,
+        title: songName,
+        number: songNumber,
+        text,
+      })
       .then(() => {
         console.log(`Inserted song into database: ${songName} (${songNumber})`);
         console.log(`----------------------------------------`);

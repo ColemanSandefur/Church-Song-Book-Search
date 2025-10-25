@@ -1,35 +1,30 @@
-import { useEffect, useState } from 'react';
-import './App.css'
-import { ThemeProvider } from './components/theme-provider'
-import { Song } from './db/schema';
-import { Button } from './components/ui/button';
-import { NewSong } from './db/schema';
+import "./App.css";
+import { ThemeProvider } from "./components/theme-provider";
+import SongBook from "./SongBook";
+import { Card, CardContent } from "./components/ui/card";
+import SongListElement from "./SongList";
 
 function App() {
-  const [songs, getSongs] = useState<Song[]>([]);
-
-  const refreshSongs = async () => {
-    const fetchedItems = await window.db.getSongs();
-    getSongs(fetchedItems);
-  }
-
-  useEffect(() => {
-    refreshSongs().then().catch(console.error);
-  }, []);
-
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <h1 className='text-2xl'>
-        Welcome!
-      </h1>
-      <ul>
-        {songs.map(item => (
-          <li key={item.id}>{item.number}: {item.title}</li>
-        ))}
-      </ul>
-      <Button onClick={async () => {await window.db.addSong({title: "Test Song", number: 25} as NewSong); await refreshSongs();}}>Add Row</Button>
+      <div className="max-w-7xl mx-auto m-4">
+        <h1 className="text-3xl mb-8">Welcome!</h1>
+
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardContent>
+              <SongBook />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <SongListElement />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </ThemeProvider>
-  )
+  );
 }
 
-export default App
+export default App;

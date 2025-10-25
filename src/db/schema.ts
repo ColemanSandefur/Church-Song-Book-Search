@@ -3,6 +3,9 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 export const songs = sqliteTable("songs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  songBookId: integer("song_book_id")
+    .notNull()
+    .references(() => songBooks.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   number: integer("number"),
   text: text("text"),
@@ -10,3 +13,12 @@ export const songs = sqliteTable("songs", {
 
 export type Song = InferSelectModel<typeof songs>;
 export type NewSong = InferInsertModel<typeof songs>;
+
+export const songBooks = sqliteTable("song_books", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  path: text("path").notNull(),
+});
+
+export type SongBook = InferSelectModel<typeof songBooks>;
+export type NewSongBook = InferInsertModel<typeof songBooks>;

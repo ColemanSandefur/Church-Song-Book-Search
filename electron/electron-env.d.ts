@@ -1,7 +1,5 @@
 /// <reference types="vite-plugin-electron/electron-env" />
 
-const {Song, NewSong} = import('../src/db/schema');
-
 declare namespace NodeJS {
   interface ProcessEnv {
     /**
@@ -17,18 +15,24 @@ declare namespace NodeJS {
      * │
      * ```
      */
-    APP_ROOT: string
+    APP_ROOT: string;
     /** /dist/ or /public/ */
-    VITE_PUBLIC: string
+    VITE_PUBLIC: string;
   }
 }
 
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
-  ipcRenderer: import('electron').IpcRenderer,
+  ipcRenderer: import("electron").IpcRenderer;
   db: {
-    getSongs: () => Promise<Song[]>,
-    addSong: (songData: NewSong) => Promise<any>;
+    getSongs: () => Promise<import("../src/db/schema").Song[]>;
+    addSong: (songData: import("../src/db/schema").NewSong) => Promise<unknown>;
+    getSongBooks: () => Promise<import("../src/db/schema").SongBook[]>;
+    addSongBook: (
+      songBookData: import("../src/db/schema").NewSongBook
+    ) => Promise<unknown>;
+    removeSongBookById: (
+      songNum: number
+    ) => Promise<import("../src/db/schema").SongBook>;
   };
 }
-
