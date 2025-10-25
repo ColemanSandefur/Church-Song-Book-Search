@@ -9,13 +9,15 @@ export const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { db, runMigrate } from "./db";
 import {
+  NewScheduledSong,
   NewSong,
   NewSongBook,
-  SongBook,
+  ScheduledSong,
+  scheduledSongs,
   songBooks,
   songs,
 } from "../src/db/schema";
-import { extractAllPptxImagesFromDir } from "./ppt-extract";
+import { extractPptxImages, getAllPptxFilesFromDir } from "./ppt-extract";
 import { extractTextFromImage } from "./text-extract";
 import { eq } from "drizzle-orm";
 
@@ -82,7 +84,12 @@ app.on("activate", () => {
 
 app.whenReady().then(async () => {
   await runMigrate();
+  db.update(scheduledSongs)
+    .set({ isActive: 0 })
+    .where(eq(scheduledSongs.isActive, 1))
+    .run();
   createWindow();
+  startScheduledSongProcessingLoop();
 });
 
 export function getSongs() {
@@ -112,7 +119,130 @@ ipcMain.handle("db:get-song-books", async () => {
 export async function addSongBook(songBook: NewSongBook) {
   const result = await db.insert(songBooks).values(songBook).returning().get();
 
-  readDirectory(result);
+  const bookPath = songBook.path;
+
+  const pptFiles = await getAllPptxFilesFromDir(bookPath);
+
+  console.log(`Found ${pptFiles.length} .pptx files in ${bookPath}`);
+
+  const fullPaths = pptFiles.map((fileName) => {
+    const songPath = path.join(bookPath, fileName);
+    const pptName = path.parse(songPath).name;
+    const match = pptName.match(/^(\d*\s+)?(.*?)(?:-[A-Za-z]+)?$/);
+    const songNumber = match && match[1] ? parseInt(match[1].trim()) : null;
+    const songName = match ? match[2].trim() : pptName;
+
+    return {
+      songBookId: result.id,
+      number: songNumber,
+      title: songName,
+      powerPointPath: songPath,
+    } as NewScheduledSong;
+  });
+
+  await db.insert(scheduledSongs).values(fullPaths).returning();
+
+  return result;
+}
+
+async function startScheduledSongProcessingLoop() {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    console.log("Checking for scheduled songs to process...");
+    // process all scheduled songs available
+    while (
+      (await processScheduledSongs().catch((err) => {
+        console.error("Error processing scheduled songs:", err);
+        return 0;
+      })) > 0
+    );
+
+    // Wait for 10 seconds before checking again
+    await new Promise((resolve) => {
+      setTimeout(resolve, 10_000);
+    });
+  }
+}
+
+async function processScheduledSongs() {
+  const songs = db
+    .update(scheduledSongs)
+    .set({ isActive: 1 })
+    .where(eq(scheduledSongs.isActive, 0))
+    .limit(5)
+    .returning()
+    .all();
+
+  if (songs.length === 0) {
+    console.log("No scheduled songs to process.");
+    return 0;
+  }
+
+  console.log(`Processing ${songs.length} scheduled songs...`);
+
+  await Promise.all(
+    songs.map(async (song) => {
+      await processSong(song);
+      const completedSong = db
+        .delete(scheduledSongs)
+        .where(eq(scheduledSongs.id, song.id))
+        .returning()
+        .get();
+
+      console.log(
+        `Processed and removed scheduled song: ${completedSong?.title}`
+      );
+    })
+  );
+
+  return songs.length;
+}
+
+async function processSong(song: ScheduledSong) {
+  const imagePaths = await extractPptxImages(song.powerPointPath);
+
+  const texts = await Promise.all(
+    imagePaths.map(async (imgPath) => {
+      const text = await extractTextFromImage(imgPath);
+      return { fileName: path.parse(imgPath).name, text };
+    })
+  );
+
+  const text = texts
+    .map(({ fileName, text }) => ({
+      slideNumber: getSlideNumber(fileName),
+      text,
+    }))
+    .sort((a, b) => (a.slideNumber ?? 0) - (b.slideNumber ?? 0))
+    .map((item) => item.text)
+    .join("\n");
+
+  const folderPath = path.dirname(imagePaths[0]);
+  if (folderPath) {
+    console.log(`Cleaning up temporary folder: ${folderPath}`);
+    fs.rmSync(folderPath, { recursive: true, force: true });
+  }
+
+  db.insert(songs)
+    .values({
+      songBookId: song.songBookId,
+      title: song.title,
+      number: song.number,
+      text,
+    })
+    .then(() => {
+      console.log(
+        `Inserted song into database: ${song.title} (${song.number})`
+      );
+      console.log(`----------------------------------------`);
+      console.log(text);
+    })
+    .catch((err) => {
+      console.error(
+        `Failed to insert song into database: ${song.title} (${song.number})`,
+        err
+      );
+    });
 }
 
 ipcMain.handle("db:add-song-book", async (_event, songBookData) => {
@@ -136,61 +266,4 @@ ipcMain.handle("db:remove-song-book-by-id", async (_event, songNum) => {
 function getSlideNumber(filename: string): number | null {
   const match = filename.match(/image(\d+)/i);
   return match ? parseInt(match[1], 10) : null;
-}
-
-async function readDirectory(songBook: SongBook) {
-  const dirPath = songBook.path;
-  console.log(`Reading directory: ${dirPath}`);
-  const images = await extractAllPptxImagesFromDir(dirPath);
-
-  console.time(`Processing PPTX Images`);
-  for (const [fileName, imagePaths] of Object.entries(images).slice(0, 5)) {
-    const texts = await Promise.all(
-      imagePaths.map(async (imgPath) => {
-        const text = await extractTextFromImage(imgPath);
-        return { fileName: path.parse(imgPath).name, text };
-      })
-    );
-
-    const text = texts
-      .map(({ fileName, text }) => ({
-        slideNumber: getSlideNumber(fileName),
-        text,
-      }))
-      .sort((a, b) => (a.slideNumber ?? 0) - (b.slideNumber ?? 0))
-      .map((item) => item.text)
-      .join("\n");
-
-    const folderPath = path.dirname(imagePaths[0]);
-    if (folderPath) {
-      console.log(`Cleaning up temporary folder: ${folderPath}`);
-      fs.rmSync(folderPath, { recursive: true, force: true });
-    }
-
-    const pptName = path.parse(path.join(dirPath, fileName)).name;
-    const match = pptName.match(/^(\d*\s+)?(.*?)(?:-[A-Za-z]+)?$/);
-    const songNumber = match && match[1] ? parseInt(match[1].trim()) : null;
-    const songName = match ? match[2].trim() : pptName;
-
-    db.insert(songs)
-      .values({
-        songBookId: songBook.id,
-        title: songName,
-        number: songNumber,
-        text,
-      })
-      .then(() => {
-        console.log(`Inserted song into database: ${songName} (${songNumber})`);
-        console.log(`----------------------------------------`);
-        console.log(text);
-      })
-      .catch((err) => {
-        console.error(
-          `Failed to insert song into database: ${songName} (${songNumber})`,
-          err
-        );
-      });
-  }
-  console.timeEnd(`Processing PPTX Images`);
-  return;
 }

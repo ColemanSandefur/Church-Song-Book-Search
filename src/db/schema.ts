@@ -22,3 +22,17 @@ export const songBooks = sqliteTable("song_books", {
 
 export type SongBook = InferSelectModel<typeof songBooks>;
 export type NewSongBook = InferInsertModel<typeof songBooks>;
+
+export const scheduledSongs = sqliteTable("scheduledSongs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  songBookId: integer("song_book_id")
+    .notNull()
+    .references(() => songBooks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  number: integer("number"),
+  powerPointPath: text("power_point_path").notNull(),
+  isActive: integer("is_active").notNull().default(0), // 0 or 1
+});
+
+export type ScheduledSong = InferSelectModel<typeof scheduledSongs>;
+export type NewScheduledSong = InferInsertModel<typeof scheduledSongs>;

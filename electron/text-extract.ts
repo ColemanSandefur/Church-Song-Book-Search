@@ -5,21 +5,22 @@ const require = createRequire(import.meta.url);
 const Tesseract = require("tesseract.js") as typeof import("tesseract.js");
 
 export async function extractTextFromImage(imagePath: string) {
-  console.time(`OCR ${path.basename(imagePath)}`);
   const {
     data: { text },
   } = await Tesseract.recognize(imagePath, "eng", {
     // logger: (m) => console.log(m), // optional: progress updates
   });
-  console.timeEnd(`OCR ${path.basename(imagePath)}`);
 
-  console.time(`Filter OCR ${path.basename(imagePath)}`);
   const filteredText = text
     .split("\n")
     .filter((line) => isEnglishLike(line.trim()))
-    .map((line) => line.trim().replace(/\s*[-—]\s*/g, ""))
+    .map((line) =>
+      line
+        .trim()
+        .replace(/\s*[-—]\s*/g, "")
+        .replace(/\|/g, "I")
+    )
     .join("\n");
-  console.timeEnd(`Filter OCR ${path.basename(imagePath)}`);
 
   return filteredText;
 }

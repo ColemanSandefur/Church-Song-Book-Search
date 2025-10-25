@@ -48,6 +48,21 @@ export async function extractPptxImages(pptxPath: string): Promise<string[]> {
 }
 
 /**
+ * Find all PowerPoint files in a given directory
+ * @param dirPath Directory containing .pptx files
+ * @returns A list of all PowerPoint filenames (not absolute paths)
+ */
+export async function getAllPptxFilesFromDir(
+  dirPath: string
+): Promise<string[]> {
+  const files = fs.readdirSync(dirPath);
+
+  const pptFiles = files.filter((file) => file.endsWith(".pptx"));
+
+  return pptFiles;
+}
+
+/**
  * Extract images from all .pptx files in a directory
  * @param dirPath Directory containing .pptx files
  * @returns A mapping of .pptx filenames to their extracted image paths

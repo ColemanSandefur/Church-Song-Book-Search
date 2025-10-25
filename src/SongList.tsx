@@ -15,7 +15,7 @@ export default function SongListElement() {
       <ul>
         {songs.map((item) => (
           <li key={item.id}>
-            {item.number}: {item.title}
+            {item.number && `${item.number}:`} {item.title}
           </li>
         ))}
       </ul>
