@@ -3,10 +3,12 @@ import { ThemeProvider } from "./components/theme-provider";
 import SongBook from "./SongBook";
 import { Card, CardContent } from "./components/ui/card";
 import SongListElement from "./SongList";
+import { SongBooksProvider } from "./contexts/SongBooksContext";
+import { SongsProvider } from "./contexts/SongsContext";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <Providers>
       <div className="max-w-7xl mx-auto m-4">
         <h1 className="text-3xl mb-8">Welcome!</h1>
 
@@ -23,7 +25,19 @@ function App() {
           </Card>
         </div>
       </div>
-    </ThemeProvider>
+    </Providers>
+  );
+}
+
+function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <SongBooksProvider>
+          <SongsProvider>{children}</SongsProvider>
+        </SongBooksProvider>
+      </ThemeProvider>
+    </>
   );
 }
 

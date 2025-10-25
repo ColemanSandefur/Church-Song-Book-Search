@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { SongBook } from "./db/schema";
 import { Button } from "./components/ui/button";
 import { Plus, XIcon } from "lucide-react";
 import {
@@ -19,20 +18,12 @@ import {
 } from "./components/ui/field";
 import { Input } from "./components/ui/input";
 import { parse } from "pathe";
+import { useSongBooks } from "./contexts/SongBooksContext";
 
 export default function SongBookView() {
+  const { songBooks, addSongBook, removeSongBookById } = useSongBooks();
   const [isOpen, setIsOpen] = useState(false);
-  const [songBooks, setSongBooks] = useState([] as SongBook[]);
   const [songBookName, setSongBookName] = useState("");
-
-  const refreshSongs = async () => {
-    const fetchedItems = await window.db.getSongBooks();
-    setSongBooks(fetchedItems);
-  };
-
-  useEffect(() => {
-    refreshSongs().then().catch(console.error);
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -73,11 +64,10 @@ export default function SongBookView() {
                   const directory = parse(files[0].path).dir;
 
                   console.log(songBookName, directory);
-                  window.db.addSongBook({
+                  addSongBook({
                     path: directory,
                     name: songBookName,
                   });
-                  refreshSongs();
                 }
 
                 setIsOpen(false);
@@ -158,8 +148,7 @@ export default function SongBookView() {
                   size="icon"
                   className="float-end"
                   onClick={async () => {
-                    await window.db.removeSongBookById(item.id);
-                    refreshSongs();
+                    await removeSongBookById(item.id);
                   }}
                 >
                   <XIcon />

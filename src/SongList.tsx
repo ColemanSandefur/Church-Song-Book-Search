@@ -1,24 +1,14 @@
-import { useState, useEffect } from "react";
-import { Song } from "./db/schema";
 import { Button } from "./components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { useSongs } from "./contexts/SongsContext";
 
 export default function SongListElement() {
-  const [songs, setSongs] = useState<Song[]>([]);
-
-  const refreshSongs = async () => {
-    const fetchedItems = await window.db.getSongs();
-    setSongs(fetchedItems);
-  };
-
-  useEffect(() => {
-    refreshSongs().then().catch(console.error);
-  }, []);
+  const { songs, refresh } = useSongs();
   return (
     <div>
       <div className="flex flex-row justify-between">
         <h2 className="text-2xl mb-4">Song List</h2>
-        <Button variant="outline" size="icon" onClick={refreshSongs}>
+        <Button variant="outline" size="icon" onClick={refresh}>
           <RefreshCw />
         </Button>
       </div>
