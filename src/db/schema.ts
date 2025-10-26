@@ -8,6 +8,7 @@ export const songs = sqliteTable("songs", {
     .references(() => songBooks.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   number: integer("number"),
+  powerPointPath: text("power_point_path").notNull(),
   text: text("text"),
 });
 
@@ -23,7 +24,7 @@ export const songBooks = sqliteTable("song_books", {
 export type SongBook = InferSelectModel<typeof songBooks>;
 export type NewSongBook = InferInsertModel<typeof songBooks>;
 
-export const scheduledSongs = sqliteTable("scheduledSongs", {
+export const scheduledSongs = sqliteTable("scheduled_songs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   songBookId: integer("song_book_id")
     .notNull()

@@ -14,6 +14,7 @@ import {
   NewSongBook,
   ScheduledSong,
   scheduledSongs,
+  SongBook,
   songBooks,
   songs,
 } from "../src/db/schema";
@@ -88,6 +89,7 @@ app.whenReady().then(async () => {
     .set({ isActive: 0 })
     .where(eq(scheduledSongs.isActive, 1))
     .run();
+  await syncAllSongBooks();
   createWindow();
   startScheduledSongProcessingLoop();
 });
@@ -119,30 +121,65 @@ ipcMain.handle("db:get-song-books", async () => {
 export async function addSongBook(songBook: NewSongBook) {
   const result = await db.insert(songBooks).values(songBook).returning().get();
 
-  const bookPath = songBook.path;
+  await syncDirectorySongs(result).catch((err) => {
+    console.error(`Error syncing songs for song book ID ${result.id}:`, err);
+  });
 
-  const pptFiles = await getAllPptxFilesFromDir(bookPath);
+  return result;
+}
 
-  console.log(`Found ${pptFiles.length} .pptx files in ${bookPath}`);
+async function syncAllSongBooks() {
+  const allSongBooks = await db.select().from(songBooks).all();
 
-  const fullPaths = pptFiles.map((fileName) => {
-    const songPath = path.join(bookPath, fileName);
+  await Promise.all(
+    allSongBooks.map((songBook) => syncDirectorySongs(songBook))
+  );
+}
+
+async function syncDirectorySongs(songBook: SongBook) {
+  const searchedSongs = await db
+    .select()
+    .from(songs)
+    .where(eq(songs.songBookId, songBook.id));
+  const queuedSongs = await db
+    .select()
+    .from(scheduledSongs)
+    .where(eq(scheduledSongs.songBookId, songBook.id));
+
+  const existingSongPaths = new Set<string>(
+    [...searchedSongs, ...queuedSongs].map((s) => s.powerPointPath)
+  );
+
+  const allPptFiles = (await getAllPptxFilesFromDir(songBook.path)).map(
+    (fileName) => path.join(songBook.path, fileName)
+  );
+
+  const newSongsPaths = allPptFiles.filter(
+    (filePath) => existingSongPaths.has(filePath) === false
+  );
+
+  const newSongs = newSongsPaths.map((songPath) => {
     const pptName = path.parse(songPath).name;
     const match = pptName.match(/^(\d*\s+)?(.*?)(?:-[A-Za-z]+)?$/);
     const songNumber = match && match[1] ? parseInt(match[1].trim()) : null;
-    const songName = match ? match[2].trim() : pptName;
+    const songName = (match ? match[2].trim() : pptName).replace(
+      /([a-z])_([a-z])/i,
+      "$1'$2"
+    );
 
     return {
-      songBookId: result.id,
+      songBookId: songBook.id,
       number: songNumber,
       title: songName,
       powerPointPath: songPath,
     } as NewScheduledSong;
   });
 
-  await db.insert(scheduledSongs).values(fullPaths).returning();
+  if (newSongs.length === 0) {
+    return [];
+  }
 
-  return result;
+  return await db.insert(scheduledSongs).values(newSongs).returning().all();
 }
 
 async function startScheduledSongProcessingLoop() {
@@ -199,6 +236,13 @@ async function processScheduledSongs() {
 }
 
 async function processSong(song: ScheduledSong) {
+  if (!song.powerPointPath || fs.existsSync(song.powerPointPath) === false) {
+    console.error(
+      `PowerPoint file does not exist: ${song.powerPointPath}. Skipping song: ${song.title} (${song.number})`
+    );
+    return;
+  }
+
   const imagePaths = await extractPptxImages(song.powerPointPath);
 
   const texts = await Promise.all(
@@ -228,6 +272,7 @@ async function processSong(song: ScheduledSong) {
       songBookId: song.songBookId,
       title: song.title,
       number: song.number,
+      powerPointPath: song.powerPointPath,
       text,
     })
     .then(() => {
